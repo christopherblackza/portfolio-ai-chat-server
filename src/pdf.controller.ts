@@ -19,7 +19,7 @@ export class PdfController {
   )
   async uploadFile(@UploadedFile() file: Express.Multer.File): Promise<{ fileId: string }> {
     if (!file) {
-      throw new Error('No file uploaded');
+      throw new Error('No file uploaded xD');
     }
 
     // Parse the PDF to extract text
