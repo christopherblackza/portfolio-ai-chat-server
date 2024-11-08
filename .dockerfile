@@ -1,4 +1,4 @@
-# Stage 1: Build the NestJS app
+# Stage 1: Build the NestJS app (Railway)
 FROM node:18 AS build
 
 WORKDIR /app
