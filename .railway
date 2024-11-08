@@ -1,0 +1,7 @@
+{
+  "build": "npm run build",  // Specifies how to build the project
+  "start": "npm run start:prod",  // Defines the start command for production
+  "env": {
+    "NODE_ENV": "production"  // Optional: Set custom environment variables
+  }
+}
