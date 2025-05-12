@@ -1,15 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import axios from 'axios';
-import * as dotenv from 'dotenv';
 
-
-dotenv.config();
 
 @Injectable()
 export class PdfService {
 
   model1 = 'distilbert-base-uncased-distilled-squad';
   model2 = 'bert-large-uncased-whole-word-masking-finetuned-squad';
+  model3 = 'deepset/roberta-base-squad2';
+  model4 = 'deepset/bert-base-cased-squad2';
   
   private pdfTextCache: { [key: string]: string } = {};
 
@@ -29,7 +28,6 @@ export class PdfService {
 
   private async answerQuestion(pdfText: string, question: string): Promise<string> {
     console.log('Answering question...');
-    console.log('using api key:', process.env.HUGGING_FACE_API_KEY);
     try {
       
 
@@ -41,7 +39,7 @@ export class PdfService {
   
 
       const response = await axios.post(
-        `https://api-inference.huggingface.co/models/${this.model2}`,
+        `https://api-inference.huggingface.co/models/${this.model3}`,
         {
           inputs: {
             question: question,
@@ -51,7 +49,8 @@ export class PdfService {
         {
           headers: {
             'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+             "Accept": "application/json"
           },
         },
       );
