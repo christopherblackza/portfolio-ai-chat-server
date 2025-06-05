@@ -30,34 +30,34 @@ export class ChatController {
       const body = req.body;
       const { messages } = body;
 
-      const stream = await this.chatService.processChat(messages);
+      // const stream = await this.chatService.processChat(messages);
 
-      res.writeHead(200, {
-        ...corsHeaders,
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-      });
+      // res.writeHead(200, {
+      //   ...corsHeaders,
+      //   'Content-Type': 'text/event-stream',
+      //   'Cache-Control': 'no-cache',
+      //   Connection: 'keep-alive',
+      // });
 
-      // Handle the ReadableStream properly
-      const reader = stream.getReader();
-      const decoder = new TextDecoder();
+      // // Handle the ReadableStream properly
+      // const reader = stream.getReader();
+      // const decoder = new TextDecoder();
 
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+      // try {
+      //   while (true) {
+      //     const { done, value } = await reader.read();
+      //     if (done) break;
           
-          // Decode the Uint8Array to string
-          const chunk = decoder.decode(value, { stream: true });
-          res.write(chunk);
-        }
-      } catch (streamError) {
-        console.error('Stream reading error:', streamError);
-      } finally {
-        reader.releaseLock();
-        res.end();
-      }
+      //     // Decode the Uint8Array to string
+      //     const chunk = decoder.decode(value, { stream: true });
+      //     res.write(chunk);
+      //   }
+      // } catch (streamError) {
+      //   console.error('Stream reading error:', streamError);
+      // } finally {
+      //   reader.releaseLock();
+      //   res.end();
+      // }
     } catch (error) {
       console.error('Error processing request', error);
       res

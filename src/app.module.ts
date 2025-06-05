@@ -9,12 +9,14 @@ import { PingController } from './ping/ping.controller';
 import { ChatModule } from './chat/chat.module';
 import { RagController } from './rag/rag.controller';
 import { RagService } from './rag/rag.service';
+import { RagModule } from './rag/rag.module';
 
 @Module({
   imports: [
-    ChatModule
+    ChatModule,
+    RagModule
   ],
-  controllers: [PdfController, HealthController, AuthController, PingController, RagController],
-  providers: [PdfService, AuthService, RagService],
+  controllers: [PdfController, HealthController, AuthController, PingController],
+  providers: [PdfService, AuthService],
 })
 export class AppModule {}
