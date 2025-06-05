@@ -28,6 +28,7 @@
     "@supabase/supabase-js": "^2.49.10",
     "axios": "^1.7.7",
     "dotenv": "^16.4.5",
+    "langchain": "^0.3.27",
     "openai": "^5.1.1",
     "pdf-parse": "^1.1.1",
     "reflect-metadata": "^0.2.0",
