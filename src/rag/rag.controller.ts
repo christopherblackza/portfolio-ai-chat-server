@@ -1,5 +1,22 @@
-import { Controller, Post, Body, UseInterceptors, UploadedFile, Get, Param, Delete } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiBody, ApiResponse, ApiConsumes, ApiParam } from '@nestjs/swagger';
+import {
+  Controller,
+  Post,
+  Body,
+  UseInterceptors,
+  UploadedFile,
+  Get,
+  Param,
+  Delete,
+  BadRequestException,
+} from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBody,
+  ApiResponse,
+  ApiConsumes,
+  ApiParam,
+} from '@nestjs/swagger';
 import { RagService } from './rag.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 
@@ -9,9 +26,10 @@ export class RagController {
   constructor(private readonly ragService: RagService) {}
 
   @Post('ask')
-  @ApiOperation({ 
-    summary: 'Ask a question using RAG with automatic session management', 
-    description: 'Submit a question to get an AI-generated answer. The service automatically manages sessions per user.' 
+  @ApiOperation({
+    summary: 'Ask a question using RAG with automatic session management',
+    description:
+      'Submit a question to get an AI-generated answer. The service automatically manages sessions per user.',
   })
   @ApiBody({
     schema: {
@@ -20,43 +38,47 @@ export class RagController {
         question: {
           type: 'string',
           description: 'The question to ask',
-          example: 'What technologies does Christopher work with?'
+          example: 'What technologies does Christopher work with?',
         },
         userId: {
           type: 'string',
           description: 'User ID for session management',
-          example: '69b556da-343d-4ceb-a4c8-f8d752c2ecf3'
-        }
+          example: '69b556da-343d-4ceb-a4c8-f8d752c2ecf3',
+        },
       },
-      required: ['question', 'userId']
-    }
+      required: ['question', 'userId'],
+    },
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'AI-generated answer with session information',
     schema: {
       type: 'object',
       properties: {
         answer: {
           type: 'string',
-          example: 'Christopher is a full-stack developer who works with modern web technologies...'
+          example:
+            'Christopher is a full-stack developer who works with modern web technologies...',
         },
         sessionId: {
           type: 'string',
-          example: 'uuid-string'
-        }
-      }
-    }
+          example: 'uuid-string',
+        },
+      },
+    },
   })
   @ApiResponse({ status: 500, description: 'Internal server error' })
   async askQuestion(@Body() body: { question: string; userId: string }) {
-    return this.ragService.processQuestionWithAutoSession(body.question, body.userId);
+    return this.ragService.processQuestionWithAutoSession(
+      body.question,
+      body.userId,
+    );
   }
 
   @Post('sessions')
-  @ApiOperation({ 
-    summary: 'Create a new conversation session', 
-    description: 'Create a new conversation session for a user' 
+  @ApiOperation({
+    summary: 'Create a new conversation session',
+    description: 'Create a new conversation session for a user',
   })
   @ApiBody({
     schema: {
@@ -65,24 +87,24 @@ export class RagController {
         userId: {
           type: 'string',
           description: 'User ID for the session',
-          example: 'user123'
+          example: 'user123',
         },
         sessionName: {
           type: 'string',
           description: 'Optional name for the session',
-          example: 'Tech Discussion'
-        }
-      }
-    }
+          example: 'Tech Discussion',
+        },
+      },
+    },
   })
   async createSession(@Body() body: { userId?: string; sessionName?: string }) {
     return this.ragService.createSession(body.userId, body.sessionName);
   }
 
   @Get('sessions/:userId')
-  @ApiOperation({ 
-    summary: 'Get user sessions', 
-    description: 'Retrieve all conversation sessions for a user' 
+  @ApiOperation({
+    summary: 'Get user sessions',
+    description: 'Retrieve all conversation sessions for a user',
   })
   @ApiParam({ name: 'userId', description: 'User ID' })
   async getUserSessions(@Param('userId') userId: string) {
@@ -90,9 +112,9 @@ export class RagController {
   }
 
   @Get('sessions/:sessionId/history')
-  @ApiOperation({ 
-    summary: 'Get conversation history', 
-    description: 'Retrieve conversation history for a session' 
+  @ApiOperation({
+    summary: 'Get conversation history',
+    description: 'Retrieve conversation history for a session',
   })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   async getConversationHistory(@Param('sessionId') sessionId: string) {
@@ -100,9 +122,9 @@ export class RagController {
   }
 
   @Delete('sessions/:sessionId')
-  @ApiOperation({ 
-    summary: 'Delete a conversation session', 
-    description: 'Delete a conversation session and its history' 
+  @ApiOperation({
+    summary: 'Delete a conversation session',
+    description: 'Delete a conversation session and its history',
   })
   @ApiParam({ name: 'sessionId', description: 'Session ID' })
   async deleteSession(@Param('sessionId') sessionId: string) {
@@ -111,9 +133,10 @@ export class RagController {
 
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
-  @ApiOperation({ 
-    summary: 'Upload and process PDF', 
-    description: 'Upload a PDF file to be processed, embedded, and added to the knowledge base' 
+  @ApiOperation({
+    summary: 'Upload and process PDF',
+    description:
+      'Upload a PDF file to be processed, embedded, and added to the knowledge base',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody({
@@ -123,28 +146,48 @@ export class RagController {
         file: {
           type: 'string',
           format: 'binary',
-          description: 'PDF file to upload and process'
-        }
+          description: 'PDF file to upload and process',
+        },
       },
-      required: ['file']
-    }
+      required: ['file'],
+    },
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'PDF processed successfully',
     schema: {
       type: 'object',
       properties: {
         message: {
           type: 'string',
-          example: 'PDF processed and embedded successfully'
-        }
-      }
-    }
+          example: 'PDF processed and embedded successfully',
+        },
+      },
+    },
   })
   @ApiResponse({ status: 400, description: 'Invalid file format' })
   @ApiResponse({ status: 500, description: 'Processing failed' })
   async uploadPdf(@UploadedFile() file: Express.Multer.File) {
     return this.ragService.processPdf(file);
+  }
+
+  @Post('upload-md')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({ type: 'multipart/form-data', required: true })
+  @ApiResponse({
+    status: 200,
+    description: 'Markdown file processed successfully',
+  })
+  @ApiResponse({ status: 400, description: 'Invalid file format' })
+  @ApiResponse({ status: 500, description: 'Processing failed' })
+  async uploadMd(@UploadedFile() file: Express.Multer.File) {
+    if (!file || file.mimetype !== 'text/markdown') {
+      throw new BadRequestException(
+        'Invalid file format. Only Markdown files are supported.',
+      );
+    }
+
+    return this.ragService.processMd(file);
   }
 }

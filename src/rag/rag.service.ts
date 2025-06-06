@@ -7,6 +7,7 @@ import { v4 as uuidv4 } from 'uuid';
 import * as path from 'path';
 import * as fs from 'fs';
 import { ConversationMessage, ConversationSession } from './rag.types';
+import { AI_PROMPT } from 'src/constants.const';
 
 @Injectable()
 export class RagService {
@@ -128,13 +129,7 @@ export class RagService {
 
     // Step 4: Construct prompt with retrieved context and conversation history
     const prompt = `
-You are Christopher Black, a mellow full-stack dev from Cape Town.
-
-Respond casually, like chatting over coffee. Use markdown if helpful, no images, no process explanation.
-
-Use the context below **only if it's relevant to the question**. Don't mention jobs, tech, or projects unless asked.
-
-Consider the conversation history to maintain context and provide coherent responses.
+${AI_PROMPT}
 
 ---
 Knowledge Base Context:
@@ -146,6 +141,8 @@ ${conversationContext}
 
 ---
 Current Question: ${question}`;
+
+console.log("[PROMPT]", prompt)
 
     // Step 5: Ask OpenAI
     const completion = await this.openai.chat.completions.create({
@@ -316,6 +313,70 @@ Current Question: ${question}`;
     }
 
     return { message: 'PDF processed and embedded successfully' };
+  }
+
+  async processMd(file: Express.Multer.File) {
+    const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
+  
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+  
+    const filePath = path.join(uploadsDir, `${uuidv4()}_${file.originalname}`);
+    fs.writeFileSync(filePath, file.buffer);
+  
+    // Upload to Supabase Storage
+    const filename = `${uuidv4()}_${file.originalname}`;
+    const storagePath = `markdowns/${filename}`;
+    
+    const { data: uploadData, error: uploadErr } = await this.supabase.storage
+      .from('documents')
+      .upload(storagePath, file.buffer, {
+        contentType: file.mimetype,
+        upsert: true,
+      });
+  
+    if (uploadErr) throw uploadErr;
+  
+    // Convert Buffer to Text
+    const mdText = file.buffer.toString('utf-8');
+  
+    // Optional: Strip frontmatter or markdown formatting if needed
+    const cleanText = mdText.replace(/[#*_>`-]/g, '').replace(/\n+/g, '\n');
+  
+    // Split Text
+    const splitter = new RecursiveCharacterTextSplitter({
+      chunkSize: 1000,
+      chunkOverlap: 200,
+    });
+  
+    const chunks = await splitter.splitText(cleanText);
+  
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+    
+      const embedding = await this.openai.embeddings.create({
+        model: 'text-embedding-3-small',
+        input: chunk,
+      });
+    
+      const vector = embedding.data[0].embedding;
+    
+      await this.supabase
+        .from('vectors')
+        .insert({
+          content: chunk,
+          embedding: vector,
+          file_url: uploadData.path,
+          file_name: file.originalname,
+          chunk_index: i,
+          total_chunks: chunks.length,
+          uploaded_at: new Date().toISOString(),
+          source_type: 'markdown', // or 'pdf'
+        });
+    }
+  
+    return { message: 'Markdown file processed and embedded successfully' };
   }
 
   private cosineSimilarity(a: number[], b: number[]): number {

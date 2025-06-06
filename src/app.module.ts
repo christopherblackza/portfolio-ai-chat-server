@@ -10,11 +10,13 @@ import { ChatModule } from './chat/chat.module';
 import { RagController } from './rag/rag.controller';
 import { RagService } from './rag/rag.service';
 import { RagModule } from './rag/rag.module';
+import { InstagramModule } from './instagram/instagram.module';
 
 @Module({
   imports: [
     ChatModule,
-    RagModule
+    RagModule,
+    InstagramModule
   ],
   controllers: [PdfController, HealthController, AuthController, PingController],
   providers: [PdfService, AuthService],
