@@ -98,7 +98,6 @@ export class RagService {
       const { data: documents, error } = await this.supabase
         .rpc('match_documents', {
           query_embedding: questionEmbedding,
-          match_threshold: 0.7,
           match_count: 3
         });
 
@@ -150,7 +149,7 @@ console.log("[PROMPT]", prompt)
       messages: [
         {
           role: 'system',
-          content: 'You answer based on the provided context and maintain conversation continuity.',
+          content: 'You are a helpful assistant that answers based only on the given context. If the answer is not in the context, say "I don’t know"..',
         },
         { role: 'user', content: prompt },
       ],
@@ -343,6 +342,7 @@ console.log("[PROMPT]", prompt)
   
     // Optional: Strip frontmatter or markdown formatting if needed
     const cleanText = mdText.replace(/[#*_>`-]/g, '').replace(/\n+/g, '\n');
+    console.log('CLEAN TEXT', cleanText)
   
     // Split Text
     const splitter = new RecursiveCharacterTextSplitter({

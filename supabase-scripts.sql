@@ -41,13 +41,11 @@ CREATE TABLE vectors (
 );
 
 
-
-CREATE OR REPLACE FUNCTION match_documents(
+CREATE OR REPLACE FUNCTION match_documents (
   query_embedding vector(1536),
-  match_threshold float DEFAULT 0.78,
-  match_count int DEFAULT 10
+  match_count int DEFAULT 5
 )
-RETURNS TABLE(
+RETURNS TABLE (
   id uuid,
   content text,
   file_url text,
@@ -58,13 +56,13 @@ AS $$
 BEGIN
   RETURN QUERY
   SELECT
-    vectors.id,
-    vectors.content,
-    vectors.file_url,
-    1 - (vectors.embedding <=> query_embedding) AS similarity
-  FROM vectors
-  WHERE 1 - (vectors.embedding <=> query_embedding) > match_threshold
-  ORDER BY vectors.embedding <=> query_embedding
+    v.id,
+    v.content,
+    v.file_url,
+    1 - (v.embedding <=> query_embedding) AS similarity
+  FROM vectors v
+  WHERE v.embedding IS NOT NULL
+  ORDER BY v.embedding <=> query_embedding
   LIMIT match_count;
 END;
 $$;
