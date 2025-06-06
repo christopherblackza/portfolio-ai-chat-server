@@ -149,7 +149,8 @@ console.log("[PROMPT]", prompt)
       messages: [
         {
           role: 'system',
-          content: 'You are a helpful assistant that answers based only on the given context. If the answer is not in the context, say "I don’t know"..',
+          content: `You are a helpful assistant that answers questions based only on the provided context.
+          Keep your answers short and to the point. Only include explanations if explicitly asked for them.`,
         },
         { role: 'user', content: prompt },
       ],
