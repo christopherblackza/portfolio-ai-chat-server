@@ -13,6 +13,7 @@ async function bootstrap() {
     origin: '*', // Allow all origins
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-User-Id', 'X-Session-Id']
   });
 
   app.use(bodyParser.json({ limit: '10mb' }));
