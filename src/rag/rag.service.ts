@@ -17,7 +17,7 @@ export class RagService {
 
   private readonly supabase = createClient(
     this.supabaseUrl,
-    this.supabaseAnonKey
+    this.supabaseAnonKey,
   );
 
   constructor() {
@@ -28,12 +28,12 @@ export class RagService {
    * New method that automatically manages sessions per user
    */
   async processQuestionWithAutoSession(
-    question: string, 
-    userId: string
+    question: string,
+    userId: string,
   ): Promise<{ answer: string; sessionId: string }> {
     // Get or create the user's active session
     let activeSession = await this.getOrCreateActiveSession(userId);
-    
+
     // Use the existing processQuestionWithMemory method
     return this.processQuestionWithMemory(question, activeSession.id, userId);
   }
@@ -41,7 +41,9 @@ export class RagService {
   /**
    * Get the user's most recent session or create a new one
    */
-  private async getOrCreateActiveSession(userId: string): Promise<ConversationSession> {
+  private async getOrCreateActiveSession(
+    userId: string,
+  ): Promise<ConversationSession> {
     // Try to get the user's most recent session
     const { data: sessions, error } = await this.supabase
       .from('conversation_sessions')
@@ -65,9 +67,9 @@ export class RagService {
   }
 
   async processQuestionWithMemory(
-    question: string, 
-    sessionId?: string, 
-    userId?: string
+    question: string,
+    sessionId?: string,
+    userId?: string,
   ): Promise<{ answer: string; sessionId: string }> {
     // Create or get session
     let currentSessionId = sessionId;
@@ -78,7 +80,7 @@ export class RagService {
 
     // Get conversation history
     const history = await this.getConversationHistory(currentSessionId);
-    
+
     // Store user question
     await this.addMessageToHistory(currentSessionId, 'user', question);
 
@@ -95,11 +97,13 @@ export class RagService {
 
     try {
       // Step 2: Query Supabase vectors table using RPC function
-      const { data: documents, error } = await this.supabase
-        .rpc('match_documents', {
+      const { data: documents, error } = await this.supabase.rpc(
+        'match_documents',
+        {
           query_embedding: questionEmbedding,
-          match_count: 3
-        });
+          match_count: 3,
+        },
+      );
 
       if (error) {
         console.error('Error querying Supabase vectors:', error);
@@ -107,12 +111,13 @@ export class RagService {
       }
 
       // Format the retrieved documents
-      const docsMap = documents
-        ?.map(
-          (doc, index) =>
-            `(${index + 1}) ${doc.content.slice(0, 500).replace(/\n/g, ' ')}`,
-        )
-        .join('\n') || '';
+      const docsMap =
+        documents
+          ?.map(
+            (doc, index) =>
+              `(${index + 1}) ${doc.content.slice(0, 500).replace(/\n/g, ' ')}`,
+          )
+          .join('\n') || '';
 
       docContext = JSON.stringify(docsMap);
     } catch (err) {
@@ -123,7 +128,7 @@ export class RagService {
     // Step 3: Prepare conversation context
     const conversationContext = history
       .slice(-10) // Keep last 10 messages for context
-      .map(msg => `${msg.role}: ${msg.content}`)
+      .map((msg) => `${msg.role}: ${msg.content}`)
       .join('\n');
 
     // Step 4: Construct prompt with retrieved context and conversation history
@@ -141,7 +146,7 @@ ${conversationContext}
 ---
 Current Question: ${question}`;
 
-console.log("[PROMPT]", prompt)
+    console.log('[PROMPT]', prompt);
 
     // Step 5: Ask OpenAI
     const completion = await this.openai.chat.completions.create({
@@ -166,12 +171,15 @@ console.log("[PROMPT]", prompt)
     return { answer, sessionId: currentSessionId };
   }
 
-  async createSession(userId?: string, sessionName?: string): Promise<ConversationSession> {
+  async createSession(
+    userId?: string,
+    sessionName?: string,
+  ): Promise<ConversationSession> {
     const { data, error } = await this.supabase
       .from('conversation_sessions')
       .insert({
         user_id: userId,
-        session_name: sessionName || 'New Conversation'
+        session_name: sessionName || 'New Conversation',
       })
       .select()
       .single();
@@ -199,7 +207,9 @@ console.log("[PROMPT]", prompt)
     return data || [];
   }
 
-  async getConversationHistory(sessionId: string): Promise<ConversationMessage[]> {
+  async getConversationHistory(
+    sessionId: string,
+  ): Promise<ConversationMessage[]> {
     const { data, error } = await this.supabase
       .from('conversation_history')
       .select('role, content, timestamp')
@@ -208,24 +218,24 @@ console.log("[PROMPT]", prompt)
 
     if (error) {
       console.error('Error fetching conversation history:', error);
-      throw new InternalServerErrorException('Failed to fetch conversation history');
+      throw new InternalServerErrorException(
+        'Failed to fetch conversation history',
+      );
     }
 
     return data || [];
   }
 
   async addMessageToHistory(
-    sessionId: string, 
-    role: 'user' | 'assistant', 
-    content: string
+    sessionId: string,
+    role: 'user' | 'assistant',
+    content: string,
   ): Promise<void> {
-    const { error } = await this.supabase
-      .from('conversation_history')
-      .insert({
-        session_id: sessionId,
-        role,
-        content
-      });
+    const { error } = await this.supabase.from('conversation_history').insert({
+      session_id: sessionId,
+      role,
+      content,
+    });
 
     if (error) {
       console.error('Error adding message to history:', error);
@@ -261,19 +271,19 @@ console.log("[PROMPT]", prompt)
 
   async processPdf(file: Express.Multer.File) {
     const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
-  
+
     // ✅ Create the uploads directory if it doesn't exist
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
-  
+
     const filePath = path.join(uploadsDir, `${uuidv4()}_${file.originalname}`);
     fs.writeFileSync(filePath, file.buffer);
 
     // Upload to Supabase Storage
     const filename = `${uuidv4()}_${file.originalname}`;
     const storagePath = `pdfs/${filename}`;
-    
+
     const { data: uploadData, error: uploadErr } = await this.supabase.storage
       .from('documents')
       .upload(storagePath, file.buffer, {
@@ -288,8 +298,8 @@ console.log("[PROMPT]", prompt)
 
     // Split Text
     const splitter = new RecursiveCharacterTextSplitter({
-        chunkSize: 1000,
-        chunkOverlap: 200,
+      chunkSize: 1000,
+      chunkOverlap: 200,
     });
 
     const chunks = await splitter.splitText(pdfData.text);
@@ -303,13 +313,11 @@ console.log("[PROMPT]", prompt)
       const vector = embedding.data[0].embedding;
 
       // Store vector and text in Supabase (assumes pgvector is set up)
-      await this.supabase
-        .from('vectors')
-        .insert({
-          content: chunk,
-          embedding: vector,
-          file_url: uploadData.path,
-        });
+      await this.supabase.from('vectors').insert({
+        content: chunk,
+        embedding: vector,
+        file_url: uploadData.path,
+      });
     }
 
     return { message: 'PDF processed and embedded successfully' };
@@ -317,66 +325,64 @@ console.log("[PROMPT]", prompt)
 
   async processMd(file: Express.Multer.File) {
     const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
-  
+
     if (!fs.existsSync(uploadsDir)) {
       fs.mkdirSync(uploadsDir, { recursive: true });
     }
-  
+
     const filePath = path.join(uploadsDir, `${uuidv4()}_${file.originalname}`);
     fs.writeFileSync(filePath, file.buffer);
-  
+
     // Upload to Supabase Storage
     const filename = `${uuidv4()}_${file.originalname}`;
     const storagePath = `markdowns/${filename}`;
-    
+
     const { data: uploadData, error: uploadErr } = await this.supabase.storage
       .from('documents')
       .upload(storagePath, file.buffer, {
         contentType: file.mimetype,
         upsert: true,
       });
-  
+
     if (uploadErr) throw uploadErr;
-  
+
     // Convert Buffer to Text
     const mdText = file.buffer.toString('utf-8');
-  
+
     // Optional: Strip frontmatter or markdown formatting if needed
     const cleanText = mdText.replace(/[#*_>`-]/g, '').replace(/\n+/g, '\n');
-    console.log('CLEAN TEXT', cleanText)
-  
+    console.log('CLEAN TEXT', cleanText);
+
     // Split Text
     const splitter = new RecursiveCharacterTextSplitter({
       chunkSize: 1000,
       chunkOverlap: 200,
     });
-  
+
     const chunks = await splitter.splitText(cleanText);
-  
+
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
-    
+
       const embedding = await this.openai.embeddings.create({
         model: 'text-embedding-3-small',
         input: chunk,
       });
-    
+
       const vector = embedding.data[0].embedding;
-    
-      await this.supabase
-        .from('vectors')
-        .insert({
-          content: chunk,
-          embedding: vector,
-          file_url: uploadData.path,
-          file_name: file.originalname,
-          chunk_index: i,
-          total_chunks: chunks.length,
-          uploaded_at: new Date().toISOString(),
-          source_type: 'markdown', // or 'pdf'
-        });
+
+      await this.supabase.from('vectors').insert({
+        content: chunk,
+        embedding: vector,
+        file_url: uploadData.path,
+        file_name: file.originalname,
+        chunk_index: i,
+        total_chunks: chunks.length,
+        uploaded_at: new Date().toISOString(),
+        source_type: 'markdown', // or 'pdf'
+      });
     }
-  
+
     return { message: 'Markdown file processed and embedded successfully' };
   }
 
