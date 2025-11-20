@@ -1,3 +1,7 @@
+
+create extension if not exists vector;
+
+
 create index on public.vectors using ivfflat (embedding vector_cosine_ops)
 with (lists = 100);
 
@@ -18,8 +22,6 @@ FOR INSERT
 WITH CHECK (true);
 
 alter table public.vectors enable row level security;
-
-create extension if not exists vector;
 
 -- create table if not exists vectors (
 --   id uuid primary key default gen_random_uuid(),
