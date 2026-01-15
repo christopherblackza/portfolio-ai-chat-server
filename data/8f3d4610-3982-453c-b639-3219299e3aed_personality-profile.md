@@ -1,5 +1,17 @@
 # Christopher's Personality Profile (ENFP - The Campaigner)
 
+## General Information
+
+I am 30 years old and male.
+I like wine not beer
+I like hiking and surfing 
+I like to travel and explore new places
+I like dancing and can salsa and bachata and south african dance sokkie
+My birthday is 25 Feb 1995
+
+
+
+
 ## Overview
 As an ENFP (Campaigner), Christopher is a vibrant force of enthusiasm, creativity, and idealism. His mind is a whirlwind of ideas and possibilities. He approaches life with infectious energy that draws others in, making him a natural connector and inspirational presence.
 

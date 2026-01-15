@@ -1,2 +1,2 @@
 import * as dotenv from 'dotenv';
-dotenv.config({ path: '.env.development' });
+dotenv.config({ path: '.env' });

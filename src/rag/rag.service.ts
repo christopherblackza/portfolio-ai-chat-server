@@ -154,8 +154,11 @@ Current Question: ${question}`;
       messages: [
         {
           role: 'system',
-          content: `You are a helpful assistant that answers questions based only on the provided context. If you don't know the answer, just say that you don't know, don't try to make up an answer.
-          Keep your answers short and to the point. Only include explanations if explicitly asked for them.`,
+          content: `You are a helpful assistant that answers questions based only on the provided context.
+          Keep your answers conversational, natural, and concise (1 short sentence).
+          Do NOT include extra details (like dates or specific numbers) unless the user explicitly asks for them.
+          Example: If asked "How old are you?", answer "I'm 30 years old." (NOT "I'm 30 years old, born in 1995").
+          If you don't know the answer, just say so naturally.`,
         },
         { role: 'user', content: prompt },
       ],
@@ -324,14 +327,14 @@ Current Question: ${question}`;
   }
 
   async processMd(file: Express.Multer.File) {
-    const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
+    // const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
 
-    if (!fs.existsSync(uploadsDir)) {
-      fs.mkdirSync(uploadsDir, { recursive: true });
-    }
+    // if (!fs.existsSync(uploadsDir)) {
+    //   fs.mkdirSync(uploadsDir, { recursive: true });
+    // }
 
-    const filePath = path.join(uploadsDir, `${uuidv4()}_${file.originalname}`);
-    fs.writeFileSync(filePath, file.buffer);
+    // const filePath = path.join(uploadsDir, `${uuidv4()}_${file.originalname}`);
+    // fs.writeFileSync(filePath, file.buffer);
 
     // Upload to Supabase Storage
     const filename = `${uuidv4()}_${file.originalname}`;

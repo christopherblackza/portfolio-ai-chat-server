@@ -10,18 +10,12 @@ analyze public.vectors;
 ALTER TABLE public.vectors DISABLE ROW LEVEL SECURITY;
 
 
-
-
--- Enable RLS if it's not already
-ALTER TABLE public.vectors ENABLE ROW LEVEL SECURITY;
-
 -- Create policy to allow INSERTs
 CREATE POLICY "Allow insert"
 ON public.vectors
 FOR INSERT
 WITH CHECK (true);
 
-alter table public.vectors enable row level security;
 
 -- create table if not exists vectors (
 --   id uuid primary key default gen_random_uuid(),
@@ -105,3 +99,27 @@ ALTER TABLE conversation_history ENABLE ROW LEVEL SECURITY;
 -- Basic policies (adjust based on your auth requirements)
 CREATE POLICY "Allow all operations on conversation_sessions" ON conversation_sessions FOR ALL USING (true);
 CREATE POLICY "Allow all operations on conversation_history" ON conversation_history FOR ALL USING (true);
+
+
+-- Policies
+-- 1. Allow public uploads (INSERT) to the 'documents' bucket
+CREATE POLICY "Allow public uploads to documents"
+ON storage.objects
+FOR INSERT
+TO public
+WITH CHECK (bucket_id = 'documents');
+
+-- 2. Allow public updates (UPDATE) to the 'documents' bucket
+-- Required because your code uses { upsert: true }
+CREATE POLICY "Allow public updates to documents"
+ON storage.objects
+FOR UPDATE
+TO public
+USING (bucket_id = 'documents');
+
+-- 3. (Optional) Allow public reads if not covered by "Public Bucket" setting
+CREATE POLICY "Allow public downloads from documents"
+ON storage.objects
+FOR SELECT
+TO public
+USING (bucket_id = 'documents');
