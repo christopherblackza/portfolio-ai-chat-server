@@ -14,18 +14,53 @@ const supabase = createClient(
   process.env.SUPABASE_ANON_KEY!,
 );
 
-async function seedFile(filePath: string) {
-  const fileName = path.basename(filePath);
-  const rawText = fs.readFileSync(filePath, 'utf-8');
-  const cleanText = rawText.replace(/[#*_>`-]/g, '').replace(/\n+/g, '\n').trim();
+async function splitMarkdownBySections(text: string): Promise<string[]> {
+  // Split on headings so each section stays together with its heading
+  const rawSections = text
+    .split(/(?=\n#{1,3}\s)/)
+    .map((s) => s.trim())
+    .filter(Boolean);
 
+  const chunks: string[] = [];
   const splitter = new RecursiveCharacterTextSplitter({
     chunkSize: 1000,
     chunkOverlap: 200,
   });
 
-  const chunks = await splitter.splitText(cleanText);
-  console.log(`\n📄 ${fileName} → ${chunks.length} chunks`);
+  for (const section of rawSections) {
+    if (section.length <= 1000) {
+      chunks.push(section);
+    } else {
+      // Keep the heading as a prefix on each sub-chunk for context
+      const heading = section.match(/^#{1,3}\s[^\n]+/)?.[0] ?? '';
+      const subChunks = await splitter.splitText(section);
+      subChunks.forEach((sub, i) => {
+        chunks.push(i === 0 ? sub : `${heading}\n${sub}`);
+      });
+    }
+  }
+
+  return chunks;
+}
+
+async function deleteExistingVectors(fileName: string) {
+  const { error } = await supabase
+    .from('vectors')
+    .delete()
+    .eq('file_name', fileName);
+
+  if (error) throw new Error(`Failed to delete vectors for ${fileName}: ${error.message}`);
+  console.log(`  🗑  Cleared existing vectors for ${fileName}`);
+}
+
+async function seedFile(filePath: string) {
+  const fileName = path.basename(filePath);
+  const rawText = fs.readFileSync(filePath, 'utf-8');
+
+  await deleteExistingVectors(fileName);
+
+  const chunks = await splitMarkdownBySections(rawText);
+  console.log(`  📄 ${chunks.length} chunks`);
 
   for (let i = 0; i < chunks.length; i++) {
     const chunk = chunks[i];
@@ -51,7 +86,7 @@ async function seedFile(filePath: string) {
     if (error) {
       console.error(`  ✗ chunk ${i + 1}/${chunks.length}:`, error.message);
     } else {
-      console.log(`  ✓ chunk ${i + 1}/${chunks.length}`);
+      console.log(`  ✓ chunk ${i + 1}/${chunks.length}: ${chunk.split('\n')[0].slice(0, 60)}`);
     }
   }
 }
@@ -65,9 +100,8 @@ async function main() {
     return;
   }
 
-  console.log(`Found ${files.length} file(s) to seed:`, files);
-
   for (const file of files) {
+    console.log(`\n📂 ${file}`);
     await seedFile(path.join(dataDir, file));
   }
 

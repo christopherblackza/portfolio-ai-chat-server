@@ -8,7 +8,9 @@ import {
   Param,
   Delete,
   BadRequestException,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -73,6 +75,29 @@ export class RagController {
       body.question,
       body.userId,
     );
+  }
+
+  @Post('ask/stream')
+  @ApiOperation({
+    summary: 'Ask a question with streaming response (SSE)',
+    description:
+      'Same as /ask but streams tokens back as Server-Sent Events. Each event is { token: string }, terminated by { done: true, sessionId: string }.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        question: { type: 'string' },
+        userId: { type: 'string' },
+      },
+      required: ['question', 'userId'],
+    },
+  })
+  async askQuestionStream(
+    @Body() body: { question: string; userId: string },
+    @Res() res: Response,
+  ) {
+    return this.ragService.streamQuestion(body.question, body.userId, res);
   }
 
   @Post('sessions')

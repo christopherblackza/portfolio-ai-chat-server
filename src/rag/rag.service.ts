@@ -24,7 +24,7 @@ export class RagService {
     if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
       throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY must be set');
     }
-    this.openai = new OpenAI({ apiKey: process.env.OPEN_API_KEY });
+    this.openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   }
 
   /**
@@ -47,7 +47,6 @@ export class RagService {
   private async getOrCreateActiveSession(
     userId: string,
   ): Promise<ConversationSession> {
-    // Try to get the user's most recent session
     const { data: sessions, error } = await this.supabase
       .from('conversation_sessions')
       .select('*')
@@ -60,13 +59,15 @@ export class RagService {
       throw new InternalServerErrorException('Failed to fetch user sessions');
     }
 
-    // If user has a recent session, use it
+    const SESSION_EXPIRY_MS = 60 * 60 * 1000; // 1 hour
     if (sessions && sessions.length > 0) {
-      return sessions[0];
+      const lastActive = new Date(sessions[0].updated_at).getTime();
+      if (Date.now() - lastActive < SESSION_EXPIRY_MS) {
+        return sessions[0];
+      }
     }
 
-    // Otherwise, create a new session
-    return this.createSession(userId, 'Auto Session');
+    return this.createSession(userId, 'New Conversation');
   }
 
   async processQuestionWithMemory(
@@ -74,69 +75,107 @@ export class RagService {
     sessionId?: string,
     userId?: string,
   ): Promise<{ answer: string; sessionId: string }> {
-    // Create or get session
     let currentSessionId = sessionId;
     if (!currentSessionId) {
       const session = await this.createSession(userId);
       currentSessionId = session.id;
     }
 
-    // Get conversation history
-    const history = await this.getConversationHistory(currentSessionId);
+    const { messages, currentSessionId: sid } = await this.buildChatMessages(
+      question,
+      currentSessionId,
+    );
 
-    // Store user question
-    await this.addMessageToHistory(currentSessionId, 'user', question);
+    const completion = await this.openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages,
+      max_tokens: 500,
+      temperature: 0.7,
+    });
 
-    // Step 1: Embed the question
+    const answer = completion.choices[0].message.content || '';
+    await this.addMessageToHistory(sid, 'assistant', answer);
+
+    return { answer, sessionId: sid };
+  }
+
+  async streamQuestion(
+    question: string,
+    userId: string,
+    res: import('express').Response,
+  ): Promise<void> {
+    const activeSession = await this.getOrCreateActiveSession(userId);
+
+    const { messages, currentSessionId } = await this.buildChatMessages(
+      question,
+      activeSession.id,
+    );
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
+
+    const stream = await this.openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages,
+      max_tokens: 500,
+      temperature: 0.7,
+      stream: true,
+    });
+
+    let fullAnswer = '';
+    for await (const chunk of stream) {
+      const token = chunk.choices[0]?.delta?.content || '';
+      if (token) {
+        fullAnswer += token;
+        res.write(`data: ${JSON.stringify({ token })}\n\n`);
+      }
+    }
+
+    res.write(
+      `data: ${JSON.stringify({ done: true, sessionId: currentSessionId })}\n\n`,
+    );
+    res.end();
+
+    await this.addMessageToHistory(currentSessionId, 'assistant', fullAnswer);
+  }
+
+  private async buildChatMessages(
+    question: string,
+    sessionId: string,
+  ): Promise<{
+    messages: OpenAI.Chat.ChatCompletionMessageParam[];
+    currentSessionId: string;
+  }> {
+    const history = await this.getConversationHistory(sessionId);
+    await this.addMessageToHistory(sessionId, 'user', question);
+
     const embeddingResponse = await this.openai.embeddings.create({
       model: 'text-embedding-3-small',
       input: question,
       encoding_format: 'float',
     });
 
-    const questionEmbedding = embeddingResponse.data[0].embedding;
+    const { data: documents, error } = await this.supabase.rpc(
+      'match_documents',
+      { query_embedding: embeddingResponse.data[0].embedding, match_count: 5 },
+    );
 
-    let docContext = '';
-
-    try {
-      // Step 2: Query Supabase vectors table using RPC function
-      const { data: documents, error } = await this.supabase.rpc(
-        'match_documents',
-        {
-          query_embedding: questionEmbedding,
-          match_count: 3,
-        },
-      );
-
-      if (error) {
-        console.error('Error querying Supabase vectors:', error);
-        throw new InternalServerErrorException('Failed to query vectors table');
-      }
-
-      // Format the retrieved documents
-      const docsMap =
-        documents
-          ?.map(
-            (doc, index) =>
-              `(${index + 1}) ${doc.content.slice(0, 500).replace(/\n/g, ' ')}`,
-          )
-          .join('\n') || '';
-
-      docContext = JSON.stringify(docsMap);
-    } catch (err) {
-      console.error('Error querying vectors table:', err);
+    if (error) {
       throw new InternalServerErrorException('Failed to query vectors table');
     }
 
-    // Step 3: Prepare conversation context
+    const docContext = documents
+      ?.map((doc, i) => `(${i + 1}) ${doc.content}`)
+      .join('\n\n');
+
     const conversationContext = history
-      .slice(-10) // Keep last 10 messages for context
+      .slice(-10)
       .map((msg) => `${msg.role}: ${msg.content}`)
       .join('\n');
 
-    // Step 4: Construct prompt with retrieved context and conversation history
-    const prompt = `
-${AI_PROMPT}
+    const userPrompt = `${AI_PROMPT}
 
 ---
 Knowledge Base Context:
@@ -149,32 +188,17 @@ ${conversationContext}
 ---
 Current Question: ${question}`;
 
-    console.log('[PROMPT]', prompt);
-
-    // Step 5: Ask OpenAI
-    const completion = await this.openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+    return {
       messages: [
         {
           role: 'system',
-          content: `You are a helpful assistant that answers questions based only on the provided context.
-          Keep your answers conversational, natural, and concise (1 short sentence).
-          Do NOT include extra details (like dates or specific numbers) unless the user explicitly asks for them.
-          Example: If asked "How old are you?", answer "I'm 30 years old." (NOT "I'm 30 years old, born in 1995").
-          If you don't know the answer, just say so naturally.`,
+          content:
+            'Answer only from the provided Knowledge Base Context. Be conversational and concise. If the context does not cover the question, say so naturally.',
         },
-        { role: 'user', content: prompt },
+        { role: 'user', content: userPrompt },
       ],
-      max_tokens: 500,
-      temperature: 0.7,
-    });
-
-    const answer = completion.choices[0].message.content || '';
-
-    // Store assistant response
-    await this.addMessageToHistory(currentSessionId, 'assistant', answer);
-
-    return { answer, sessionId: currentSessionId };
+      currentSessionId: sessionId,
+    };
   }
 
   async createSession(
@@ -352,20 +376,8 @@ Current Question: ${question}`;
 
     if (uploadErr) throw uploadErr;
 
-    // Convert Buffer to Text
     const mdText = file.buffer.toString('utf-8');
-
-    // Optional: Strip frontmatter or markdown formatting if needed
-    const cleanText = mdText.replace(/[#*_>`-]/g, '').replace(/\n+/g, '\n');
-    console.log('CLEAN TEXT', cleanText);
-
-    // Split Text
-    const splitter = new RecursiveCharacterTextSplitter({
-      chunkSize: 1000,
-      chunkOverlap: 200,
-    });
-
-    const chunks = await splitter.splitText(cleanText);
+    const chunks = await this.splitMarkdownBySections(mdText);
 
     for (let i = 0; i < chunks.length; i++) {
       const chunk = chunks[i];
@@ -390,6 +402,33 @@ Current Question: ${question}`;
     }
 
     return { message: 'Markdown file processed and embedded successfully' };
+  }
+
+  private async splitMarkdownBySections(text: string): Promise<string[]> {
+    const rawSections = text
+      .split(/(?=\n#{1,3}\s)/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+
+    const chunks: string[] = [];
+    const splitter = new RecursiveCharacterTextSplitter({
+      chunkSize: 1000,
+      chunkOverlap: 200,
+    });
+
+    for (const section of rawSections) {
+      if (section.length <= 1000) {
+        chunks.push(section);
+      } else {
+        const heading = section.match(/^#{1,3}\s[^\n]+/)?.[0] ?? '';
+        const subChunks = await splitter.splitText(section);
+        subChunks.forEach((sub, i) => {
+          chunks.push(i === 0 ? sub : `${heading}\n${sub}`);
+        });
+      }
+    }
+
+    return chunks;
   }
 
   private cosineSimilarity(a: number[], b: number[]): number {

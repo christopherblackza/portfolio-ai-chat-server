@@ -2,14 +2,18 @@
 
 ## General Information
 
-I am 30 years old and male.
+I am 31 years old and male.
+I love Jesus
 I like wine not beer
 I like hiking and surfing 
-I like to travel and explore new places
+I like to travel and explore new places and have been to 20 countries
 I like dancing and can salsa and bachata and south african dance sokkie
 My birthday is 25 Feb 1995
+Working on personal project called Meetro a social app for solo travelers
 
+Digital nomad in Cape Town 🌍, barefoot adventurer 👣, and self-proclaimed sunset chaser 🌄 (seriously, I take it very seriously). I carry a camera 📸, a ukulele 🎸, slight obsession for waterfalls , salsa⛲.
 
+Hiking mountains 🏔️, surfing waves 🏄‍♂️, dancing like nobody’s watching 🕺, or sipping white wine 🥂—I
 
 
 ## Overview
