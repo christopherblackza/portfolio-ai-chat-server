@@ -21,6 +21,9 @@ export class RagService {
   );
 
   constructor() {
+    if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+      throw new Error('SUPABASE_URL and SUPABASE_ANON_KEY must be set');
+    }
     this.openai = new OpenAI({ apiKey: process.env.OPEN_API_KEY });
   }
 

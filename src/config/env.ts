@@ -1,2 +1,4 @@
 import * as dotenv from 'dotenv';
-dotenv.config({ path: '.env' });
+import * as path from 'path';
+
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });

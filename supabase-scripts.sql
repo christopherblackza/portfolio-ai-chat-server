@@ -2,6 +2,19 @@
 create extension if not exists vector;
 
 
+CREATE TABLE vectors (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  content text,
+  embedding vector(1536), -- or 3072 for 'text-embedding-3-large'
+  file_url text,
+  file_name text,
+  chunk_index integer,
+  total_chunks integer,
+  uploaded_at timestamp,
+  source_type text
+);
+
+
 create index on public.vectors using ivfflat (embedding vector_cosine_ops)
 with (lists = 100);
 
@@ -23,18 +36,6 @@ WITH CHECK (true);
 --   embedding vector(1536),
 --   file_url text
 -- );
-
-CREATE TABLE vectors (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  content text,
-  embedding vector(1536), -- or 3072 for 'text-embedding-3-large'
-  file_url text,
-  file_name text,
-  chunk_index integer,
-  total_chunks integer,
-  uploaded_at timestamp,
-  source_type text
-);
 
 
 CREATE OR REPLACE FUNCTION match_documents (
